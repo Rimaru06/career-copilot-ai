@@ -32,11 +32,14 @@ export async function createResume(input: CreateResumeInput) {
     return newResume;
 }
 
-export async function setPrimaryResume(userId: string, resumeId: string) {
+export async function setPrimaryResume(
+    userId: string,
+    resumeId: string
+) {
     const existingResume = await prisma.resume.findUnique({
         where: {
-            id: resumeId
-        }
+            id: resumeId,
+        },
     });
 
     if (!existingResume) {
@@ -51,36 +54,32 @@ export async function setPrimaryResume(userId: string, resumeId: string) {
         return existingResume;
     }
 
-    const currentPrimary = await prisma.resume.findFirst({
-        where: {
-            userId: userId,
-            isPrimary: true
-        }
-    });
-
-   const updatedResume = await prisma.$transaction(async (tx) => {
-    if (currentPrimary) {
-        await tx.resume.update({
+    return prisma.$transaction(async (tx) => {
+        const currentPrimary = await tx.resume.findFirst({
             where: {
-                id: currentPrimary.id,
-            },
-            data: {
-                isPrimary: false,
+                userId,
+                isPrimary: true,
             },
         });
-    }
 
-    const updatedNewPrimary = await tx.resume.update({
-        where: {
-            id: resumeId,
-        },
-        data: {
-            isPrimary: true,
-        },
+        if (currentPrimary) {
+            await tx.resume.update({
+                where: {
+                    id: currentPrimary.id,
+                },
+                data: {
+                    isPrimary: false,
+                },
+            });
+        }
+
+        return tx.resume.update({
+            where: {
+                id: resumeId,
+            },
+            data: {
+                isPrimary: true,
+            },
+        });
     });
-
-    return updatedNewPrimary;
-});
-
-return updatedResume;
 }
